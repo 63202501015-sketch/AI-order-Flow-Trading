@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-order-flow-trading"
+version = "0.1.0"
+description = "Smart Money Concepts (order block / market structure / liquidity) price structure analysis"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+]
+
+[tool.setuptools.packages.find]
+include = ["smc*"]
