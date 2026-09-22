@@ -45,7 +45,7 @@ if str(PROJECT_ROOT) not in sys.path:
 # ============================================================
 
 try:
-    from smc import analyze
+    from smc import analyze, forecast_15m
 except ImportError as exc:
     raise ImportError(
         "\nUnable to import 'analyze' from the smc package.\n\n"
@@ -438,6 +438,18 @@ def main() -> None:
         f"{safe_len(consolidation_ranges)} "
         "consolidation range(s)"
     )
+
+    print("\n" + "=" * 60)
+    print("15-MINUTE FORECAST CONTEXT")
+    print("=" * 60)
+    forecast = forecast_15m(df)
+    print(forecast.summary())
+    if forecast.reasons:
+        print("Confirmations:")
+        for reason in forecast.reasons:
+            print(f"  - {reason}")
+    print("\nNote: synthetic 4h data only exercises the forecast API.")
+    print("For a real 15-minute horizon, pass completed 5-minute market bars.")
 
     print("\nTest completed successfully.")
 
