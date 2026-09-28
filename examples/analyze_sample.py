@@ -440,6 +440,16 @@ def main() -> None:
     )
 
     print("\n" + "=" * 60)
+    print("SINGLE-CANDLESTICK PATTERNS (last 5)")
+    print("=" * 60)
+    candle_signals = getattr(result, "candle_signals", []) or []
+    if candle_signals:
+        for signal in candle_signals[-5:]:
+            print(f"  - {signal.describe()}")
+    else:
+        print("  (no single-candlestick patterns found)")
+
+    print("\n" + "=" * 60)
     print("15-MINUTE FORECAST CONTEXT")
     print("=" * 60)
     forecast = forecast_15m(df)

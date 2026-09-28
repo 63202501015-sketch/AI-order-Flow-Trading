@@ -14,7 +14,11 @@
 3. **Liquidity Pool** — หาโซน equal highs/equal lows (ที่สภาพคล่อง/stop-loss น่าจะกองอยู่)
    และโซนสะสมราคา (consolidation range) ก่อนการกระชากออกจากกรอบ (`smc/liquidity.py`)
 
-ทั้งสามส่วนถูกรวมไว้ใน `smc.analyze()` ซึ่งคืนค่า bias (ขาขึ้น/ขาลง) พร้อมโซนที่ยังไม่ถูก
+4. **Single Candlestick Patterns (รูปแบบแท่งเทียนรายแท่ง)** — Hammer, Inverted Hammer,
+   Shooting Star, Hanging Man, Marubozu และ Doji พร้อมบอกว่าเกิดที่แนวรับ/แนวต้านสำคัญหรือไม่
+   และแผนเข้าออเดอร์ (`smc/candlestick.py`)
+
+ทุกส่วนถูกรวมไว้ใน `smc.analyze()` ซึ่งคืนค่า bias (ขาขึ้น/ขาลง) พร้อมโซนที่ยังไม่ถูก
 แตะ (unmitigated) ที่สอดคล้องกับเทรนด์ปัจจุบัน
 
 > ⚠️ นี่คือเครื่องมือช่วยวิเคราะห์โครงสร้างราคาเชิงกฎเกณฑ์ ไม่ใช่คำแนะนำการลงทุน และไม่รับประกัน
@@ -51,6 +55,40 @@ for ob in result.active_order_blocks():
 python examples/analyze_sample.py
 ```
 
+### แท่งเทียนรายแท่ง (Single Candlestick Patterns)
+
+```python
+from smc import find_candle_patterns
+
+for sig in find_candle_patterns(df, require_key_level=True):
+    print(sig.describe())
+# 2024-01-01 15:00:00: Hammer (ค้อน) ที่แนว 99.80 — Buy: สายซิ่งเข้าที่ open แท่งถัดไป (101.40),
+#   สายชัวร์รอทะลุ High 101.50 | SL 99.90 [ยืนยันแล้ว]
+```
+
+| Pattern | รูปร่าง | ตำแหน่ง | ความหมาย |
+|---|---|---|---|
+| Hammer (ค้อน) | บอดี้เล็กด้านบน ไส้ล่าง ≥ 2 เท่าบอดี้ ไส้บนสั้น | แนวรับ / ปลายขาลง | กลับตัวขึ้น |
+| Hanging Man (คนแขวนคอ) | เหมือน Hammer | แนวต้าน / ปลายขาขึ้น | กลับตัวลง |
+| Shooting Star (ดาวตก) | บอดี้เล็กด้านล่าง ไส้บน ≥ 2 เท่าบอดี้ ไส้ล่างสั้น | แนวต้าน / ปลายขาขึ้น | กลับตัวลง |
+| Inverted Hammer (ค้อนหงาย) | เหมือน Shooting Star | แนวรับ / ปลายขาลง | กลับตัวขึ้น |
+| Marubozu (แท่งเต็มบอดี้) | บอดี้ ≥ 90% ของแท่ง แทบไม่มีไส้ | — | ไปต่อตามทิศแท่ง (continuation) |
+| Doji (โดจิ) | บอดี้ ≤ 10% ของแท่ง | — | ลังเล รอแท่งถัดไปปิดนอกกรอบเพื่อเลือกทาง |
+
+กติกาที่ใช้:
+
+- **ตำแหน่งสำคัญที่สุด** — แนวรับ/แนวต้านคือ swing low/high ที่ *ยืนยันแล้วก่อน* แท่งแพทเทิร์น
+  (ไม่มี lookahead) แท่งที่ไส้แตะแนวภายใน `level_tolerance_atr` × ATR แล้วปิดกลับเข้ามาได้จะนับว่า
+  `at_key_level=True` ส่วนแพทเทิร์นที่เกิดลอย ๆ กลางทางจะยังถูกรายงานแต่ `tradeable=False`
+  (ใช้ `require_key_level=True` เพื่อกรองทิ้ง) — Hammer กับ Hanging Man (และ Shooting Star กับ
+  Inverted Hammer) แยกกันด้วยตำแหน่งนี้ หรือเทรนด์ก่อนหน้าถ้าไม่มีแนวใกล้ ๆ
+- **ใช้แท่งที่ปิดแล้วเท่านั้น** — ทุกแถวใน `df` ถือเป็นแท่งที่ปิดสนิท อย่าส่งแท่งที่ยังวิ่งอยู่เข้าไป
+- **Entry** — สายซิ่ง: `aggressive_entry` = open ของแท่งถัดไป; สายชัวร์: รอทะลุ `buy_trigger`
+  (High ของแท่งแพทเทิร์น) หรือหลุด `sell_trigger` (Low) โดย `confirmed` บอกว่าแท่งถัดไปทะลุแล้วหรือยัง
+- **Stop Loss** — ปลายไส้ของแท่งแพทเทิร์น (Low สำหรับฝั่ง Buy, High สำหรับฝั่ง Sell)
+
+แนะนำใช้ไทม์เฟรม H1, H4 หรือ Day เพื่อลดสัญญาณหลอก
+
 ### พล็อตกราฟ (optional)
 
 ```python
@@ -83,12 +121,13 @@ smc/
   structure.py      # swing points, BOS, CHoCH
   order_blocks.py    # order block detection + mitigation tracking
   liquidity.py         # equal highs/lows, consolidation ranges
+  candlestick.py       # single-candlestick patterns + key-level context
   analyzer.py            # pipeline รวม + bias summary
   visualize.py             # plotting ด้วย mplfinance (optional)
 examples/
   analyze_sample.py         # ตัวอย่างรันแบบ end-to-end บนข้อมูลจำลอง
 tests/
-  test_structure.py, test_order_blocks.py, test_liquidity.py
+  test_structure.py, test_order_blocks.py, test_liquidity.py, test_candlestick.py
 ```
 
 ## รันเทส
