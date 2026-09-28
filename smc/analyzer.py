@@ -1,6 +1,7 @@
 """High-level entry point: run the full order-flow / smart-money read
 on a price series and produce a directional bias plus the zones that
-justify it (order blocks, liquidity pools, consolidation ranges).
+justify it (order blocks, liquidity pools, consolidation ranges,
+single-candlestick patterns at key levels).
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from typing import Optional
 
 import pandas as pd
 
+from .candlestick import CandleSignal, find_candle_patterns
 from .liquidity import ConsolidationRange, LiquidityPool, find_consolidation_ranges, find_equal_highs_lows
 from .order_blocks import OrderBlock, find_order_blocks, update_mitigation
 from .structure import StructureEvent, Trend, detect_structure_events, find_swing_points
@@ -24,6 +26,7 @@ class AnalysisResult:
     order_blocks: list[OrderBlock] = field(default_factory=list)
     liquidity_pools: list[LiquidityPool] = field(default_factory=list)
     consolidation_ranges: list[ConsolidationRange] = field(default_factory=list)
+    candle_signals: list[CandleSignal] = field(default_factory=list)
 
     def active_order_blocks(self) -> list[OrderBlock]:
         """Unmitigated order blocks aligned with the current trend —
@@ -31,8 +34,14 @@ class AnalysisResult:
         return [ob for ob in self.order_blocks if not ob.mitigated and ob.direction == self.trend]
 
     def summary(self) -> str:
+        tradeable = [s for s in self.candle_signals if s.tradeable]
+        candle_line = (
+            f"แท่งเทียนรายแท่งล่าสุดที่แนวรับ/แนวต้าน: {tradeable[-1].describe()}" if tradeable else None
+        )
+
         if self.last_event is None:
-            return "ยังไม่มีโครงสร้างราคาที่ยืนยันได้ (not enough data for a structure read)."
+            msg = "ยังไม่มีโครงสร้างราคาที่ยืนยันได้ (not enough data for a structure read)."
+            return msg if candle_line is None else f"{msg}\n{candle_line}"
 
         bias_th = "ขาขึ้น (bullish)" if self.trend == Trend.UP else "ขาลง (bearish)"
         lines = [
@@ -62,6 +71,9 @@ class AnalysisResult:
             lines.append(
                 f"โซนสะสม/พักตัวล่าสุด: {rng.low:.2f} - {rng.high:.2f} ({rng.start_time} ถึง {rng.end_time})"
             )
+
+        if candle_line is not None:
+            lines.append(candle_line)
 
         return "\n".join(lines)
 
@@ -94,6 +106,7 @@ def analyze(
     update_mitigation(order_blocks, df)
     liquidity_pools = find_equal_highs_lows(swings, tolerance_pct=equal_level_tolerance_pct)
     consolidation = find_consolidation_ranges(df, window=consolidation_window)
+    candle_signals = find_candle_patterns(df, swings=swings, swing_right=swing_right)
 
     trend = events[-1].direction if events else Trend.UNDEFINED
     last_event = events[-1] if events else None
@@ -104,4 +117,5 @@ def analyze(
         order_blocks=order_blocks,
         liquidity_pools=liquidity_pools,
         consolidation_ranges=consolidation,
+        candle_signals=candle_signals,
     )
