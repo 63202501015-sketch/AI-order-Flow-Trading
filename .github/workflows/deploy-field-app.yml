@@ -1,0 +1,38 @@
+name: Deploy Field App (GitHub Pages)
+
+on:
+  push:
+    paths:
+      - "field_app/**"
+      - ".github/workflows/deploy-field-app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Deploy automatically from the default branch; any branch can be deployed manually via "Run workflow"
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that JSON files are valid
+        run: |
+          python3 -m json.tool field_app/master.json > /dev/null
+          python3 -m json.tool field_app/manifest.json > /dev/null
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: field_app
+      - id: deployment
+        uses: actions/deploy-pages@v4
