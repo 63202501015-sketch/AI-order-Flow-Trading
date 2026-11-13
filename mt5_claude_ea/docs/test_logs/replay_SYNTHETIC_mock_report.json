@@ -1,0 +1,260 @@
+{
+  "WARNING": "Pipeline output only. Not evidence of profitability; see docs/TEST_REPORT.md.",
+  "bars": "replay/data/SYNTHETIC_XAUUSD_M5.csv",
+  "n_bars": 5760,
+  "params": {
+    "point": 0.01,
+    "tick_size": 0.01,
+    "tick_value": 1.0,
+    "vol_min": 0.01,
+    "vol_max": 100.0,
+    "vol_step": 0.01,
+    "stops_level_points": 0.0,
+    "risk_money": 25.0,
+    "max_spread_points": 35.0,
+    "min_confidence": 60.0,
+    "max_trades_per_day": 6,
+    "cooldown_sec": 900,
+    "daily_profit": 200.0,
+    "daily_loss": 100.0,
+    "quick_profit": false,
+    "quick_profit_money": 9.0,
+    "reverse": false,
+    "hold_closes": false,
+    "commission_per_lot": 7.0,
+    "slippage_points": 5.0,
+    "sl_mult": 1.0,
+    "tp_mult": 3.0
+  },
+  "all": {
+    "trades": 99,
+    "net_profit": -1783.39,
+    "expectancy": -18.014,
+    "win_rate": 0.1414,
+    "profit_factor": 0.2255,
+    "max_drawdown": 1902.65,
+    "sharpe_per_trade": -0.7069,
+    "costs": {
+      "commission": 204.96,
+      "spread": 685.63,
+      "slippage": 286.7
+    },
+    "expectancy_ci95_bootstrap": [
+      -22.6857,
+      -12.7531
+    ],
+    "calibration": [
+      {
+        "confidence": "0-50",
+        "trades": 0,
+        "win_rate": null
+      },
+      {
+        "confidence": "50-60",
+        "trades": 0,
+        "win_rate": null
+      },
+      {
+        "confidence": "60-70",
+        "trades": 38,
+        "win_rate": 0.1579
+      },
+      {
+        "confidence": "70-80",
+        "trades": 30,
+        "win_rate": 0.1667
+      },
+      {
+        "confidence": "80-90",
+        "trades": 13,
+        "win_rate": 0.0
+      },
+      {
+        "confidence": "90-100",
+        "trades": 18,
+        "win_rate": 0.1667
+      }
+    ],
+    "exit_reasons": {
+      "DAILY_STOP": 5,
+      "SL": 89,
+      "TP": 5
+    }
+  },
+  "in_sample": {
+    "trades": 72,
+    "net_profit": -1224.6,
+    "expectancy": -17.0083,
+    "win_rate": 0.1528,
+    "profit_factor": 0.2516,
+    "max_drawdown": 1343.86,
+    "sharpe_per_trade": -0.6431,
+    "costs": {
+      "commission": 157.64,
+      "spread": 515.02,
+      "slippage": 220.4
+    },
+    "expectancy_ci95_bootstrap": [
+      -22.7708,
+      -10.5257
+    ],
+    "calibration": [
+      {
+        "confidence": "0-50",
+        "trades": 0,
+        "win_rate": null
+      },
+      {
+        "confidence": "50-60",
+        "trades": 0,
+        "win_rate": null
+      },
+      {
+        "confidence": "60-70",
+        "trades": 25,
+        "win_rate": 0.2
+      },
+      {
+        "confidence": "70-80",
+        "trades": 22,
+        "win_rate": 0.1364
+      },
+      {
+        "confidence": "80-90",
+        "trades": 10,
+        "win_rate": 0.0
+      },
+      {
+        "confidence": "90-100",
+        "trades": 15,
+        "win_rate": 0.2
+      }
+    ],
+    "exit_reasons": {
+      "DAILY_STOP": 4,
+      "SL": 64,
+      "TP": 4
+    }
+  },
+  "out_of_sample": {
+    "trades": 27,
+    "net_profit": -558.79,
+    "expectancy": -20.6959,
+    "win_rate": 0.1111,
+    "profit_factor": 0.1616,
+    "max_drawdown": 558.79,
+    "sharpe_per_trade": -0.9012,
+    "costs": {
+      "commission": 47.32,
+      "spread": 170.61,
+      "slippage": 66.3
+    },
+    "expectancy_ci95_bootstrap": [
+      -28.0481,
+      -11.4089
+    ],
+    "calibration": [
+      {
+        "confidence": "0-50",
+        "trades": 0,
+        "win_rate": null
+      },
+      {
+        "confidence": "50-60",
+        "trades": 0,
+        "win_rate": null
+      },
+      {
+        "confidence": "60-70",
+        "trades": 13,
+        "win_rate": 0.0769
+      },
+      {
+        "confidence": "70-80",
+        "trades": 8,
+        "win_rate": 0.25
+      },
+      {
+        "confidence": "80-90",
+        "trades": 3,
+        "win_rate": 0.0
+      },
+      {
+        "confidence": "90-100",
+        "trades": 3,
+        "win_rate": 0.0
+      }
+    ],
+    "exit_reasons": {
+      "DAILY_STOP": 1,
+      "SL": 25,
+      "TP": 1
+    }
+  },
+  "walk_forward": [
+    {
+      "trades": 25,
+      "net_profit": -364.87,
+      "expectancy": -14.5948,
+      "win_rate": 0.16,
+      "profit_factor": 0.3428,
+      "max_drawdown": 484.13,
+      "sharpe_per_trade": -0.477,
+      "fold": 1,
+      "from": 1793577600,
+      "to": 1794009300
+    },
+    {
+      "trades": 28,
+      "net_profit": -443.19,
+      "expectancy": -15.8282,
+      "win_rate": 0.1786,
+      "profit_factor": 0.2942,
+      "max_drawdown": 469.91,
+      "sharpe_per_trade": -0.5566,
+      "fold": 2,
+      "from": 1794182400,
+      "to": 1794614100
+    },
+    {
+      "trades": 24,
+      "net_profit": -521.4,
+      "expectancy": -21.725,
+      "win_rate": 0.0833,
+      "profit_factor": 0.0655,
+      "max_drawdown": 521.4,
+      "sharpe_per_trade": -1.4448,
+      "fold": 3,
+      "from": 1794787200,
+      "to": 1795218900
+    },
+    {
+      "trades": 22,
+      "net_profit": -453.93,
+      "expectancy": -20.6332,
+      "win_rate": 0.1364,
+      "profit_factor": 0.1917,
+      "max_drawdown": 453.93,
+      "sharpe_per_trade": -0.8223,
+      "fold": 4,
+      "from": 1795392000,
+      "to": 1795823700
+    }
+  ],
+  "monte_carlo_execution_stress": {
+    "runs": 200,
+    "net_p05": -1870.42,
+    "net_p50": -1776.48,
+    "net_p95": -1653.87,
+    "maxdd_p50": 1900.61,
+    "maxdd_p95": 1998.39
+  },
+  "gate_rejections": {
+    "cooldown active": 26,
+    "daily stop latched": 954,
+    "daily trade cap reached": 241,
+    "ok": 99,
+    "outside allowed sessions": 990,
+    "spread above limit": 101
+  }
+}

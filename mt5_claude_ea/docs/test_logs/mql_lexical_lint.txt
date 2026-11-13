@@ -1,0 +1,10 @@
+ok   Claude_AI_MT5.mq5
+ok   Include/ClaudeEA/Audit.mqh
+ok   Include/ClaudeEA/Bridge.mqh
+ok   Include/ClaudeEA/Execution.mqh
+ok   Include/ClaudeEA/Json.mqh
+ok   Include/ClaudeEA/Replay.mqh
+ok   Include/ClaudeEA/Risk.mqh
+ok   Include/ClaudeEA/Sessions.mqh
+ok   Scripts/ClaudeEA_ExportBars.mq5
+ok   Scripts/ClaudeEA_SelfTest.mq5

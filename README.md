@@ -103,3 +103,9 @@ pytest -q
 สรุปมาจากเทคนิคการอ่านโครงสร้างราคาแบบ Smart Money Concepts / ICT ทั่วไป (Order Block,
 Market Structure Shift, Liquidity) ที่ใช้กันแพร่หลายในการเทรด เช่น คู่เงิน XAUUSD — โค้ดในที่นี้
 implement ขึ้นใหม่ทั้งหมดจากหลักการดังกล่าว ไม่ได้ดึงข้อมูลหรือโค้ดจากแหล่งภายนอกใด ๆ
+
+## MT5 EA + Claude bridge (อยู่ระหว่างพัฒนา)
+
+โฟลเดอร์ [`mt5_claude_ea/`](mt5_claude_ea/README.md) มี EA สำหรับ MT5 ที่รับสัญญาณจาก Claude ผ่าน bridge ในเครื่อง
+พร้อมชุดทดสอบและเครื่องมือ replay **ยังไม่ผ่านเกณฑ์รับมอบและห้ามใช้กับเงินจริง**
+ดูสถานะที่ [`mt5_claude_ea/docs/TEST_REPORT.md`](mt5_claude_ea/docs/TEST_REPORT.md)
