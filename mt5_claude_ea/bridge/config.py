@@ -63,6 +63,8 @@ class Settings:
     db_path: str = "bridge_state.sqlite3"
     audit_path: str = "logs/bridge_audit.jsonl"
     retention_days: int = 14
+    max_daily_cost_usd: float = 10.0   # estimated spend per UTC day; reached => HOLD. 0 disables.
+    prompt_price_mode: str = "raw"     # raw | normalized (see bridge/prompt.py)
     prices: Mapping[str, tuple[float, float]] = field(default_factory=lambda: dict(DEFAULT_PRICES))
 
     @property
@@ -101,6 +103,9 @@ def load_settings(env: Optional[Mapping[str, str]] = None) -> Settings:
                 prices[str(k)] = (float(v[0]), float(v[1]))
         except (ValueError, TypeError, IndexError, KeyError) as exc:
             raise ConfigError("PRICE_TABLE_JSON invalid") from exc
+    price_mode = env.get("PROMPT_PRICE_MODE", "raw").strip()
+    if price_mode not in ("raw", "normalized"):
+        raise ConfigError("PROMPT_PRICE_MODE must be raw or normalized")
     allow = tuple(s.strip() for s in env.get("SYMBOL_ALLOWLIST", "XAUUSD").split(",") if s.strip())
     if not allow:
         raise ConfigError("SYMBOL_ALLOWLIST is empty")
@@ -128,5 +133,7 @@ def load_settings(env: Optional[Mapping[str, str]] = None) -> Settings:
         db_path=env.get("BRIDGE_DB_PATH", "bridge_state.sqlite3"),
         audit_path=env.get("BRIDGE_AUDIT_PATH", "logs/bridge_audit.jsonl"),
         retention_days=int(_num(env, "RETENTION_DAYS", 14, 1, 3650)),
+        max_daily_cost_usd=_num(env, "MAX_DAILY_COST_USD", 10, 0, 100000),
+        prompt_price_mode=price_mode,
         prices=prices,
     )

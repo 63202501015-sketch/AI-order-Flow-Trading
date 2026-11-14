@@ -17,12 +17,15 @@ from typing import Callable, Optional
 
 from bridge.models import AISignal
 from bridge.parsing import SignalParseError, parse_signal
+from bridge.prompt import build_user_content
+from bridge.sessions import open_sessions
 from bridge.retry import ProviderError
 
 from .dataset import Bar, load_bars
 
 WINDOW = 20
 HOLD = AISignal(signal="HOLD", confidence=0, reason="unavailable")
+ERROR_SOURCE = "error"      # rows with this source are re-asked on the next run, never trusted
 
 
 def atr14(window: list[Bar]) -> float:
@@ -42,13 +45,15 @@ def mock_rule(window: list[Bar]) -> AISignal:
                     reason="mock: momentum")
 
 
-def user_content(symbol: str, window: list[Bar]) -> str:
-    import json
-
-    return json.dumps({"symbol": symbol, "timeframe": "M5", "atr14": round(atr14(window), 5),
-                       "spread_points": window[-1].spread_points,
-                       "candles_oldest_first": [{"t": b.time, "o": b.open, "h": b.high, "l": b.low, "c": b.close}
-                                                for b in window]}, separators=(",", ":"))
+def user_content(symbol: str, window: list[Bar], *, point: float = 0.01, digits: int = 2,
+                 server_utc_offset_sec: int = 0, price_mode: str = "raw") -> str:
+    """Same builder as the live bridge (bridge.prompt), so replay == live model input."""
+    close_utc = window[-1].time + 300 - server_utc_offset_sec
+    return build_user_content(
+        symbol=symbol, opens=[b.open for b in window], highs=[b.high for b in window],
+        lows=[b.low for b in window], closes=[b.close for b in window], atr=atr14(window),
+        spread_points=window[-1].spread_points, point=point, digits=digits,
+        bar_close_utc=close_utc, sessions_open=open_sessions(close_utc), price_mode=price_mode)
 
 
 def generate(bars: list[Bar], decide: Callable[[list[Bar]], AISignal], source: str,
@@ -56,12 +61,13 @@ def generate(bars: list[Bar], decide: Callable[[list[Bar]], AISignal], source: s
     rows = []
     for i in range(WINDOW - 1, len(bars)):
         t = bars[i].time
-        if existing and t in existing:
+        if existing and t in existing and existing[t][3] != ERROR_SOURCE:
             rows.append(existing[t])
             continue
         window = bars[i - WINDOW + 1: i + 1]          # never touches bars[i+1:]
         s = decide(window)
-        rows.append((t, s.signal, f"{s.confidence:.1f}", source))
+        failed = s is HOLD                            # provider/parse failure, not a model HOLD
+        rows.append((t, s.signal, f"{s.confidence:.1f}", ERROR_SOURCE if failed else source))
     return rows
 
 
@@ -85,21 +91,34 @@ def read_signals(path: str) -> dict[int, tuple]:
         return out
 
 
-def anthropic_decider(symbol: str, model: str) -> Callable[[list[Bar]], AISignal]:
+def anthropic_decider(symbol: str, model: str, *, point: float, digits: int,
+                      server_utc_offset_sec: int) -> Callable[[list[Bar]], AISignal]:
+    """Real API calls through the same provider, prompt and retry policy as the live bridge."""
+    import random
+    import time
+
     from bridge.config import load_settings
     from bridge.providers import AnthropicProvider
+    from bridge.retry import RetryPolicy, call_with_retry
 
     s = load_settings()
     if not s.has_key:
         raise SystemExit("ANTHROPIC_API_KEY not set")
     prov = AnthropicProvider(s.api_key, s.request_timeout, s.effort, s.max_tokens)
+    policy = RetryPolicy(s.max_retries, s.backoff_base, s.backoff_max)
+    rng = random.Random()
     loop = asyncio.new_event_loop()
     loop.run_until_complete(prov.verify_model(model))
 
     def decide(window: list[Bar]) -> AISignal:
+        content = user_content(symbol, window, point=point, digits=digits,
+                               server_utc_offset_sec=server_utc_offset_sec, price_mode=s.prompt_price_mode)
+
+        async def once() -> AISignal:
+            return parse_signal((await prov.complete(model, content)).text)
         try:
-            res = loop.run_until_complete(prov.complete(model, user_content(symbol, window)))
-            return parse_signal(res.text)
+            return loop.run_until_complete(call_with_retry(
+                once, policy, deadline=time.monotonic() + s.decision_deadline, rng=rng))
         except (ProviderError, SignalParseError):
             return HOLD
     return decide
@@ -113,6 +132,10 @@ def main() -> None:
     ap.add_argument("--provider", choices=["mock", "anthropic"], default="mock")
     ap.add_argument("--model", default="claude-opus-5-5")
     ap.add_argument("--confirm-cost", action="store_true")
+    ap.add_argument("--point", type=float, default=0.01)
+    ap.add_argument("--digits", type=int, default=2)
+    ap.add_argument("--server-utc-offset-hours", type=float, default=0.0,
+                    help="broker server time minus UTC for the exported bars (used for hour/session context)")
     a = ap.parse_args()
     bars = load_bars(a.bars)
     if a.provider == "anthropic":
@@ -121,7 +144,12 @@ def main() -> None:
         from dotenv import load_dotenv
 
         load_dotenv()
-        rows = generate(bars, anthropic_decider(a.symbol, a.model), a.model, read_signals(a.out))
+        decide = anthropic_decider(a.symbol, a.model, point=a.point, digits=a.digits,
+                                   server_utc_offset_sec=int(a.server_utc_offset_hours * 3600))
+        rows = generate(bars, decide, a.model, read_signals(a.out))
+        errs = sum(1 for r in rows if r[3] == ERROR_SOURCE)
+        if errs:
+            print(f"{errs} bars failed (stored as HOLD/error); re-run the same command to retry only those")
     else:
         rows = generate(bars, mock_rule, "mock")
     write_signals(a.out, rows)

@@ -278,14 +278,10 @@ def test_voting_off_by_default_uses_one_model(tmp_path):
 
 
 # ---- secrets / prompt hygiene ---------------------------------------------------------------------
-def test_no_secrets_in_audit_log_and_prompt_is_numeric(tmp_path):
+def test_no_secrets_in_audit_log(tmp_path):
     prov = MockProvider({M: [OK_BUY]})
     with client(tmp_path, prov) as c:
         submit_and_wait(c, payload())
     text = (tmp_path / "audit.jsonl").read_text()
     assert "sk-ant-test" not in text and "t" * 40 not in text
-    sent = json.loads(prov.calls[0][1])
-    assert set(sent) == {"symbol", "timeframe", "atr14", "spread_points", "digits", "point",
-                         "tick_size", "contract_size", "candles_oldest_first"}
-    assert all(set(k) == {"t", "o", "h", "l", "c"} and all(isinstance(v, (int, float)) for v in k.values())
-               for k in sent["candles_oldest_first"])
+    assert json.loads(prov.calls[0][1])["symbol"] == "XAUUSD"       # prompt content: see test_ai.py

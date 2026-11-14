@@ -95,6 +95,17 @@ def test_ontick_has_no_http_and_no_sleep():
     assert "CaiHttp" not in protect and "BridgeStep" not in protect and "HandleSignal" not in protect
 
 
+def test_ai_is_not_asked_when_no_action_is_possible():
+    src = read("Claude_AI_MT5.mq5")
+    assert defaults()["InpSkipAiWhenBlocked"] == "true"
+    step = src[src.index("void BridgeStep()"):src.index("void OnTick()")]
+    assert step.index("AskBlockedReason()") < step.index("CaiBuildRequest(") < step.index("CaiHttp(")
+    skip = src[src.index("string AskBlockedReason()"):src.index("void TryEnter")]
+    for reason in ("daily stop latched", "daily trade cap reached", "outside allowed sessions", "cooldown active"):
+        assert f'return "{reason}"' in skip
+    assert "InpAllowOrders" not in skip            # observation mode (orders OFF) still collects signals
+
+
 def test_single_order_send_site_and_write_ahead_dedup():
     src = read("Claude_AI_MT5.mq5")
     assert src.count("CaiOpen(") == 1

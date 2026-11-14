@@ -1,4 +1,4 @@
-# Test report — 2026-11-13
+# Test report — 2026-11-14
 
 **ข้อสรุป: ยังไม่ผ่านเกณฑ์รับมอบ ห้ามใช้เงินจริง** ส่วน Python ผ่านเทสต์ครบ ส่วน MQL5 ยังไม่เคย compile หรือรัน
 
@@ -6,8 +6,8 @@
 
 | รายการ | คำสั่ง | ผล |
 |---|---|---|
-| pytest (แพ็กเกจนี้) | `python -m pytest -q tests` | **205 passed**, 0 failed ([log](test_logs/pytest_summary.txt)) |
-| pytest (ทั้ง repo รวม `smc/` เดิม) | `python -m pytest -q` จาก root | **217 passed** |
+| pytest (แพ็กเกจนี้) | `python -m pytest -q tests` | **220 passed**, 0 failed ([log](test_logs/pytest_summary.txt)) |
+| pytest (ทั้ง repo รวม `smc/` เดิม) | `python -m pytest -q` จาก root | **232 passed** |
 | MQL5 lexical lint | `python tools_mql_lint.py` | 10 ไฟล์ วงเล็บสมดุล ([log](test_logs/mql_lexical_lint.txt)) ตรวจได้แค่โครงสร้าง ไม่ใช่ compile |
 | Replay pipeline | `replay.generate` + `replay.backtest` บนข้อมูล SYNTHETIC | รันจบ ([รายงาน](test_logs/replay_SYNTHETIC_mock_report.json)) |
 
@@ -26,6 +26,22 @@
 - **Sessions**: offset ของ London/New York ตรงกับ IANA ทุกชั่วโมงตั้งแต่ 2015 ถึง 2040
 - **Risk logic** (reference model): volume ไม่ปัดขึ้น, SL monotonic บนเส้นทางสุ่ม 600 เส้น, stop/freeze level, daily latch + restart
 - **Replay**: สัญญาณไม่ขึ้นกับแท่งในอนาคต, เข้าเทรดหลังแท่งสัญญาณปิดเสมอ, ไม่มีสอง position ซ้อนกัน, ไม่มีเทรดนอก session หรือ spread เกิน
+
+### การตรวจและปรับปรุงส่วน AI (2026-11-14)
+
+| สิ่งที่พบ | ผลกระทบ | สิ่งที่แก้ |
+|---|---|---|
+| Replay กับ live สร้าง prompt คนละฟังก์ชัน เนื้อหาไม่ตรงกัน | ผล backtest ไม่ได้ทดสอบสิ่งที่ live ถามจริง | รวมเป็น `bridge/prompt.py` ตัวเดียว มีเทสต์ยืนยันว่าข้อความตรงกันทุกตัวอักษร |
+| ส่ง epoch timestamp ของทุกแท่งให้โมเดล | ใน replay โมเดลอาจรู้วันที่และ "จำ" ราคาได้ (look-ahead ผ่านความรู้ของโมเดล) | ตัดออก เหลือชั่วโมง UTC กับ session; เพิ่มโหมด `normalized` |
+| Prompt เดิมสั้น ไม่บอกโครงสร้างคำสั่งหรือต้นทุน | โมเดลไม่มีเกณฑ์ว่าเมื่อใดควร HOLD | บอก SL 1 ATR / TP 3 ATR, ต้นทุน spread, และให้ HOLD เมื่อหลักฐานอ่อน |
+| โมเดลต้องคำนวณเองจากตัวเลขดิบ | เสี่ยงคำนวณพลาด | คำนวณ feature 11 ตัวให้ล่วงหน้าแบบ deterministic |
+| ถาม AI ทุกแท่งแม้ไม่มีทางเทรด | จ่ายค่า API โดยเปล่าประโยชน์ (ราว 288 ครั้ง/วัน) | EA ข้ามการถามเมื่อถูกบล็อกแน่นอน |
+| ไม่มีเพดานค่าใช้จ่าย | ค่าใช้จ่ายบานปลายได้ โดยเฉพาะโหมดโหวต | `MAX_DAILY_COST_USD` เก็บใน SQLite |
+| Replay เก็บ HOLD จาก API error ไว้ถาวร และไม่ retry | ผล backtest เพี้ยนโดยไม่รู้ตัว | ทำเครื่องหมาย `error` แล้วถามใหม่เฉพาะแท่งนั้นในรอบถัดไป |
+| ไม่มีวิธีตรวจ key/รุ่น/latency กับ API จริง | ปัญหาไปโผล่ตอนเทรด | `python -m bridge.smoke` |
+| ไม่มีวิธีวัดว่าสัญญาณ AI ดีหรือไม่โดยไม่เสี่ยงเงิน | ต้องเปิดคำสั่งจึงจะรู้ | `python -m replay.score` |
+
+ทั้งหมดนี้ทดสอบด้วย mock เท่านั้น **ยังไม่มีข้อมูลใดบอกว่า prompt ใหม่ให้สัญญาณดีกว่าเดิม** ต้องวัดด้วย `replay.score` บนสัญญาณจริง
 
 ## 2. ผล replay บนข้อมูลสังเคราะห์ (ไม่ใช่ผลการเทรด)
 

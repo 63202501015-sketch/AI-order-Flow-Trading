@@ -53,6 +53,7 @@ input int    InpSignalDeadlineSec  = 90;         // Give up (HOLD) if no final a
 input int    InpMaxSignalAgeSec    = 120;        // Stale-signal guard, seconds after bar close
 input int    InpEvalIntervalSec    = 300;        // Minimum seconds between evaluated bars
 input double InpMinConfidence      = 60.0;       // Uncalibrated model self-report, not a probability
+input bool   InpSkipAiWhenBlocked  = true;       // Do not ask (or pay for) the AI when no action is possible
 input string InpReplayFile         = "claude_replay_signals.csv"; // Terminal Common\Files (tester)
 
 input group "=== Sessions (local exchange time, DST-aware) ==="
@@ -513,6 +514,44 @@ long SignalAgeSec(const datetime barTime)
    return (long)ServerNow() - ((long)barTime + 300);
   }
 //+------------------------------------------------------------------+
+//| Cheap pre-check before a paid AI call: returns a reason when no   |
+//| signal could lead to any action right now, "" otherwise. Uses     |
+//| only guards whose state cannot improve within one signal deadline.|
+//| The full gate in TryEnter still runs on every signal.             |
+//+------------------------------------------------------------------+
+string AskBlockedReason()
+  {
+   if(!InpSkipAiWhenBlocked)
+      return "";
+   UpdateDaily(false);
+   ulong tickets[];
+   if(CaiManagedTickets(tickets) > 0)
+     {
+      // With a position open a signal matters only if it may close or reverse it.
+      if(!InpReverseMode && !InpCloseOnHold)
+         return "position open; reverse and HOLD-close are OFF";
+      return "";
+     }
+   if(InpDailyStops && g_latched)
+      return "daily stop latched";
+   if(g_dailyOk && g_tradesToday >= InpMaxTradesPerDay)
+      return "daily trade cap reached";
+   datetime utc;
+   int off = 0;
+   string session = "NONE";
+   if(!UtcNow(utc, off))
+      return "server UTC offset unknown";
+   if(!CaiSessionAllowed(utc, InpUseLondon, InpLondonStartHHMM, InpLondonEndHHMM,
+                         InpUseNewYork, InpNewYorkStartHHMM, InpNewYorkEndHHMM,
+                         InpUseAsia, InpAsiaStartHHMM, InpAsiaEndHHMM, session))
+      return "outside allowed sessions";
+   double lastEntry = 0.0;
+   if(CaiGvGet("LASTENTRY", lastEntry) && lastEntry > 0.0 &&
+      (long)ServerNow() - (long)lastEntry + InpSignalDeadlineSec < InpCooldownSec)
+      return "cooldown active";
+   return "";
+  }
+//+------------------------------------------------------------------+
 //| All entry guards, in fixed order. The first failure blocks.       |
 //| Mirrors refmodel/risk.py::entry_gate.                             |
 //+------------------------------------------------------------------+
@@ -715,6 +754,12 @@ void BridgeStep()
       if(SignalAgeSec(barTime) > InpMaxSignalAgeSec)
         {
          FinishRequest("SKIPPED", "bar already stale (market gap or late start)");
+         return;
+        }
+      string skip = AskBlockedReason();
+      if(skip != "")
+        {
+         FinishRequest("NOT_ASKED", skip);                   // no HTTP, no API cost
          return;
         }
       MqlRates rates[];

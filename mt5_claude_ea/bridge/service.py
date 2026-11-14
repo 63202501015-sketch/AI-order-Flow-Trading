@@ -7,6 +7,7 @@ import random
 import time
 from typing import Awaitable, Callable, Optional
 
+from . import prompt
 from .audit import AuditLog
 from .config import Settings
 from .models import AISignal, SignalRequest, SignalResponse, VoteRecord, hold
@@ -18,22 +19,15 @@ from .store import DedupStore
 from .voting import tally
 
 
-def build_user_content(req: SignalRequest) -> str:
-    """Numbers only, rebuilt from validated fields; no free text from the client reaches the model
-    except the symbol, which is regex- and allowlist-checked."""
-    return json.dumps({
-        "symbol": req.symbol,
-        "timeframe": req.timeframe,
-        "atr14": req.atr,
-        "spread_points": req.spread_points,
-        "digits": req.digits,
-        "point": req.point,
-        "tick_size": req.tick_size,
-        "contract_size": req.contract_size,
-        "candles_oldest_first": [
-            {"t": c.time, "o": c.open, "h": c.high, "l": c.low, "c": c.close} for c in req.candles
-        ],
-    }, separators=(",", ":"), allow_nan=False)
+def build_user_content(req: SignalRequest, price_mode: str = "raw") -> str:
+    """Live request -> model input, via the shared builder in bridge.prompt."""
+    cs = req.candles
+    return prompt.build_user_content(
+        symbol=req.symbol, opens=[c.open for c in cs], highs=[c.high for c in cs],
+        lows=[c.low for c in cs], closes=[c.close for c in cs], atr=req.atr,
+        spread_points=req.spread_points, point=req.point, digits=req.digits,
+        bar_close_utc=req.bar_close_utc, sessions_open=open_sessions(req.bar_close_utc),
+        price_mode=price_mode)
 
 
 class Decider:
@@ -53,6 +47,9 @@ class Decider:
         self.breaker = CircuitBreaker(settings.cb_threshold, settings.cb_cooldown, clock)
         self.policy = RetryPolicy(settings.max_retries, settings.backoff_base, settings.backoff_max)
         self._verified: dict[str, bool] = {}
+
+    def _utc_day(self) -> str:
+        return time.strftime("%Y-%m-%d", time.gmtime(self.wall_clock()))
 
     # ---- synchronous pre-checks (no AI call) -------------------------------------------
     def precheck(self, req: SignalRequest) -> Optional[SignalResponse]:
@@ -123,7 +120,9 @@ class Decider:
         except Exception as exc:  # noqa: BLE001 - unknown failure is still just a failed vote
             rec.error = f"unexpected:{type(exc).__name__}"
         rec.latency_ms = int((self.clock() - t0) * 1000)
-        pin, pout = self.s.prices.get(model, (0.0, 0.0))
+        # Unknown model: price it like the most expensive known one, so the daily budget
+        # can never be bypassed by a missing table entry.
+        pin, pout = self.s.prices.get(model) or max(self.s.prices.values(), default=(0.0, 0.0))
         rec.est_cost_usd = round((rec.input_tokens * pin + rec.output_tokens * pout) / 1e6, 6)
         return sig, rec
 
@@ -146,10 +145,14 @@ class Decider:
         if not ok:
             self.breaker.record_failure(fatal="not available" in why)
             return hold(rid, bt, why)
+        day = self._utc_day()
+        if self.s.max_daily_cost_usd > 0 and self.store.spend(day) >= self.s.max_daily_cost_usd:
+            return hold(rid, bt, "daily AI budget reached (MAX_DAILY_COST_USD)", "budget")
         deadline = self.clock() + self.s.decision_deadline
-        content = build_user_content(req)
+        content = build_user_content(req, self.s.prompt_price_mode)
         results = await asyncio.gather(*(self._ask(m, content, deadline) for m in self.s.active_models))
         votes.extend(r for _, r in results)
+        self.store.add_spend(day, sum(r.est_cost_usd for _, r in results), len(results))
         failed = [r for _, r in results if not r.ok]
         if failed:
             self.breaker.record_failure(fatal=any((r.error or "").startswith("auth") for r in failed))
@@ -174,6 +177,8 @@ class Decider:
             "decision", request_id=req.request_id, symbol=req.symbol, bar_time=req.bar_time,
             bar_close_utc=req.bar_close_utc, sessions_open=open_sessions(req.bar_close_utc),
             model_ids=list(self.s.active_models), voting=self.s.voting_enabled,
+            prompt_version=prompt.PROMPT_VERSION, price_mode=self.s.prompt_price_mode, effort=self.s.effort,
+            spend_today_usd=round(self.store.spend(self._utc_day()), 6),
             votes=[v.model_dump() for v in votes], disagreement=len(names) > 1,
             signal=resp.signal, confidence=resp.confidence, source=resp.source, reason=resp.reason,
             latency_ms=latency_ms, est_cost_usd=round(sum(v.est_cost_usd for v in votes), 6),

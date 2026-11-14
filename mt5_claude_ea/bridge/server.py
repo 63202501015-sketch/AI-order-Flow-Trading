@@ -18,6 +18,7 @@ from typing import Optional, Sequence
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from . import prompt
 from .audit import AuditLog
 from .config import Settings, load_settings
 from .models import REQUEST_ID_RE, SignalRequest, SignalResponse, hold
@@ -127,6 +128,9 @@ def create_app(settings: Optional[Settings] = None, provider: Optional[Provider]
     async def health():
         return {"status": "ok", "ai_enabled": s.ai_enabled, "voting": s.voting_enabled,
                 "models": list(s.active_models), "circuit": decider.breaker.state,
-                "provider_configured": provider is not None}
+                "provider_configured": provider is not None,
+                "prompt_version": prompt.PROMPT_VERSION,
+                "spend_today_usd": round(store.spend(decider._utc_day()), 6),
+                "max_daily_cost_usd": s.max_daily_cost_usd}
 
     return app
