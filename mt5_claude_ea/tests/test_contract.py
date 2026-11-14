@@ -131,3 +131,14 @@ def test_gate_reasons_mirror_reference_model():
         "spread above limit", "daily trade cap reached", "cooldown active", "managed position already open",
         "volume below broker minimum", "SL/TP violate broker stop level", "insufficient free margin")]
     assert order == sorted(order)
+
+
+def test_standalone_single_file_builds_are_up_to_date():
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools_mql_bundle.py"), "--check"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout
+    ea = read("standalone", "Claude_AI_MT5.mq5")
+    assert "ClaudeEA\\" not in ea.replace("MQL5\\\\Files", "")      # no project includes left
+    assert re.findall(r"^#include.*$", ea, re.M) == ["#include <Trade\\Trade.mqh>"]
+    for fn in ("CaiTrailSL", "CaiParseResponse", "CaiSessionAllowed", "CaiReplayLoad", "CaiAudit", "class CFlatJson"):
+        assert fn in ea, fn

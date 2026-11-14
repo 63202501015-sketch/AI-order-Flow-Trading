@@ -49,6 +49,19 @@ copy .env.example .env
 
 ใน MT5 กด **File > Open Data Folder** จะเห็นโฟลเดอร์ `MQL5`
 
+**วิธีง่าย (แนะนำ): ใช้ไฟล์เดียวจบจากโฟลเดอร์ `EA\standalone\`** ไม่ต้องคัดลอกโฟลเดอร์ Include
+
+| คัดลอกจาก (ใน zip) | ไปที่ (ใน Data Folder) |
+|---|---|
+| `EA\standalone\Claude_AI_MT5.mq5` | `MQL5\Experts\` |
+| `EA\standalone\ClaudeEA_SelfTest.mq5` | `MQL5\Scripts\` |
+| `EA\standalone\ClaudeEA_ExportBars.mq5` | `MQL5\Scripts\` |
+
+ถ้าเคยคัดลอก `Claude_AI_MT5.mq5` ตัวเดิมไว้แล้ว ให้วางทับ
+
+**วิธีแยกโมดูล** (สำหรับผู้ที่จะแก้โค้ด): ถ้า compile แล้วขึ้น `file 'Include\ClaudeEA\Sessions.mqh' not found`
+แปลว่ายังไม่ได้คัดลอกโฟลเดอร์ `ClaudeEA` ตามตารางนี้
+
 | คัดลอกจาก (ใน zip) | ไปที่ (ใน Data Folder) |
 |---|---|
 | `EA\Include\ClaudeEA\` (ทั้งโฟลเดอร์) | `MQL5\Include\ClaudeEA\` |

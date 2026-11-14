@@ -57,7 +57,7 @@ class Settings:
     cb_cooldown: float = 300.0
     stale_max_age: float = 240.0       # seconds after bar close a request is still accepted
     clock_skew: float = 5.0
-    symbol_allowlist: tuple[str, ...] = ("XAUUSD",)
+    symbol_allowlist: tuple[str, ...] = ("XAUUSD", "XAUUSD.sc")
     host: str = "127.0.0.1"
     port: int = 8765
     db_path: str = "bridge_state.sqlite3"
@@ -106,7 +106,7 @@ def load_settings(env: Optional[Mapping[str, str]] = None) -> Settings:
     price_mode = env.get("PROMPT_PRICE_MODE", "raw").strip()
     if price_mode not in ("raw", "normalized"):
         raise ConfigError("PROMPT_PRICE_MODE must be raw or normalized")
-    allow = tuple(s.strip() for s in env.get("SYMBOL_ALLOWLIST", "XAUUSD").split(",") if s.strip())
+    allow = tuple(s.strip() for s in env.get("SYMBOL_ALLOWLIST", "XAUUSD,XAUUSD.sc").split(",") if s.strip())
     if not allow:
         raise ConfigError("SYMBOL_ALLOWLIST is empty")
     return Settings(

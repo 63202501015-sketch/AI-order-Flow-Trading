@@ -42,7 +42,7 @@ enum ENUM_CAI_LOT_MODE
 input group "=== Safety ==="
 input bool   InpAllowOrders        = false;      // Allow the EA to send orders (opt-in)
 input long   InpMagic              = 770001;     // Magic number (position ownership)
-input string InpSymbolAllowlist    = "XAUUSD";   // Exact broker symbols allowed, comma separated
+input string InpSymbolAllowlist    = "XAUUSD,XAUUSD.sc"; // Exact broker symbols allowed, comma separated
 
 input group "=== Signal source ==="
 input ENUM_CAI_SIGNAL_SOURCE InpSignalSource = CAI_SRC_AUTO;
